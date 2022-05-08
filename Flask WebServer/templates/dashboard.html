@@ -1,79 +1,145 @@
 <html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+      crossorigin="anonymous"
+    />
     <title>IoT control</title>
-    
-</head>
-<body>
+  </head>
+  <body>
     <h1>Dashboard</h1>
     <!-- TODO: <h2>{{data}}</h2> -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+      crossorigin="anonymous"
+    ></script>
     <div class="container">
-        <div>
-            <table class="table">
-                <thead>
-                  <tr>
-                    <th scope="col">PIN</th>
-                    <th scope="col"></th>
-                    <th scope="col"></th>
-                    <th scope="col">Value</th>
-                    <th scope="col"></th>
-                    <th scope="col"></th>
-                    <th scope="col">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-
-                    {% for i in range(18)%}
-                        
-                        <tr>
-                            <th scope="row"> {{ i + 1}}</th>
-                            <td>
-                                <div class="d-grid">
-                                    <a href="/on/{{ i + 1 }}" type="button" class="btn btn-success" class="block">On</a></td>
-                                </div>
-                            <td>
-                                <div class="d-grid">
-                                    <a href="/off/{{ i + 1 }}" type="button" class="btn btn-danger">Off</a>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="input-group mb-3">
-                                    <input type="number" class="form-control" value="0" placeholder="Value" aria-label="Value" aria-describedby="basic-addon1" id="{{i+1}}">
-                              </div>
-                            </td>
-                            <td>
-                                <div class="d-grid">
-                                    <button onclick="setValue({{i + 1}}, true)" type="button" class="btn btn-primary">Set digital</button>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="d-grid">
-                                    <button onclick="setValue({{i + 1}}, false)" type="button" class="btn btn-secondary">Set analog</button>
-                                </div>
-                            </td>
-                          </tr>
-                          <tr>
-                              
-                          </tr>
-                    {% endfor %}
-                </tbody>
-              </table>
-        </div>
+      <div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="row" colspan="3">IoT Management</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Light toggle</th>
+              <td>
+                <div class="d-grid">
+                  <button
+                    type="button"
+                    id="lightOn"
+                    class="btn btn-lg btn-success"
+                  >
+                    On
+                  </button>
+                </div>
+              </td>
+              <td>
+                <div class="d-grid">
+                  <button
+                    type="button"
+                    id="lightOff"
+                    class="btn btn-lg btn-danger"
+                    disabled
+                  >
+                    Off
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Door control</th>
+              <td>
+                <div class="d-grid">
+                  <button
+                    type="button"
+                    id="doorOpen"
+                    class="btn btn-lg btn-success"
+                  >
+                    Open
+                  </button>
+                </div>
+              </td>
+              <td>
+                <div class="d-grid">
+                  <button
+                    type="button"
+                    id="doorClosed"
+                    class="btn btn-lg btn-danger"
+                  >
+                    Close
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Ventilation control</th>
+              <td>
+                <div class="d-grid"></div>
+                <label for="pwm"
+                  >Input the percentage which the fan will spin at. ( 0 - 100%
+                  )</label
+                >
+              </td>
+              <td>
+                <div class="d-grid">
+                  <form action="/ventilation" method="get" id="pwmForm">
+                    <input type="number" name="pwm" class="form-control" />
+                    <button
+                      type="submit"
+                      class="btn btn-lg btn-primary"
+                      name="pwmSend"
+                    >
+                      Set
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-<script>
-    function setValue(id, isDigital) {
-        let val = document.getElementById(id).value
-        if(isDigital)
-        {
-            window.location.href="/setDigital/" + id + "/" + val
-        }
-        else {
-            window.location.href="/setAnalog/" + id + "/" + val
-        }
-    }
-</script>
-</body>
+    <script>
+      let lightOn = document.getElementById("lightOn");
+      let lightOff = document.getElementById("lightOff");
+      lightOn.addEventListener("click", light);
+      lightOff.addEventListener("click", light);
+
+      let doorOpen = document.getElementById("doorOpen");
+      let doorClosed = document.getElementById("doorClosed");
+      doorOpen.addEventListener("click", door);
+      doorClosed.addEventListener("click", door);
+
+      let pwmForm = document.getElementById("pwmForm");
+
+      let pwmVentilation = pwmForm.elements["pwmSend"];
+      pwmVentilation.addEventListener("click", ventilation);
+      let pwmValue = pwmForm.elements["pwm"];
+
+      function light(event) {
+        fetch("/light").then((response) => {
+          if (response.ok) {
+            lightOn.disabled = !lightOn.disabled;
+            lightOff.disabled = !lightOff.disabled;
+          }
+        });
+      }
+
+      function door(event) {
+        fetch("/door/"+event.srcElement.innerText).then();
+      }
+
+      function ventilation(event) {
+        fetch("/ventilation/" + pwmValue.value);
+        event.preventDefault();
+      }
+    </script>
+  </body>
 </html>

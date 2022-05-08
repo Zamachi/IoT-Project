@@ -1,20 +1,13 @@
-from tempfile import tempdir
 import urllib.request
 
-READ_KEY = ""
+READ_KEY = "IDK2WDSQQWZ07AG0"
 WRITE_KEY = "5MAB2VHW58FD71WV"
 
 
-def sendData():
-    temp = 25
-    osvetljenje = 10
-    vrata = 2
-    relej = 0
-
+def sendData(temp, osvetljenje, vrata, relej):
     urllib.request.urlopen('https://api.thingspeak.com/update?api_key={}&field1={}&field2={}&field3={}&field4={}'.format(WRITE_KEY, temp, osvetljenje, vrata, relej))
     print("Poslato na thing speak")
 
-sendData()
 # import requests
 # CHANNEL_ID = 0
 # READ_KEY = ""

@@ -28,8 +28,7 @@ def receive(serialConnection):
         time.sleep(0.1)
 
 def processMessage(message):
-    # ODGOVOR : "ARDUINO_ID:PIN|VREDNOST;"
-    
+    # FIXME format poruke je kakav?? 
     l = message[:-1].split(":")
     arudinoId = int(l[0])
     pin = int(l[1].split("|")[0])
@@ -50,48 +49,25 @@ app = Flask(__name__)
 def dashboard():
     global objectDic
     return render_template("dashboard.html", data=objectDic)
-
-@app.route('/on/<pin_id>', methods=['GET'])
-def turnOn(pin_id):
-    global serialConnection
-    text = getWriteMessage(0, pin_id, 1)
-    serialConnection.write(text.encode('ascii'))
-    return render_template("dashboard.html")
     # return jsonify(isError=False, message="Success", statusCode=200, data=pin_id)
 
-@app.route('/off/<pin_id>', methods=['GET'])
-def turnOff(pin_id):
-    global serialConnection
-    text = getWriteMessage(0, pin_id, 0)
-    serialConnection.write(text.encode('ascii'))
-    return render_template("dashboard.html")
-    # return jsonify(isError=False, message="Success", statusCode=200, data=pin_id)
+@app.route('/light', methods=['GET'])
+def light():
+    #serialConnection.write("LED;".encode('ascii'))
+    return "Proslo"
+    # return render_template("dashboard.html")
 
-@app.route('/setDigital/<pin_id>/<value>', methods=['GET'])
-def setDigital(pin_id, value):
-    global serialConnection
-    if not (int(value) == 0):
-        value = 1
-    else:
-        value = 0
-    
-    text = getWriteMessage(0, pin_id, int(value))
-    serialConnection.write(text.encode('ascii'))
+@app.route('/door/<status>', methods=["GET"])
+def door(status):
+    print(status)
+    # serialConnection.write("11:"+status.upper()+";".encode("ascii"))
     return render_template("dashboard.html")
 
-@app.route('/setAnalog/<pin_id>/<value>', methods=['GET'])
-def setAnalog(pin_id, value):
-    global serialConnection
-    text = getWriteMessage(0, pin_id, value)
-    serialConnection.write(text.encode('ascii'))
+@app.route('/ventilation/<value>', methods=['GET'])
+def venetilation(value):
+    print(value)
+    # serialConnection.write("5:"+value+";".encode('ascii'))
     return render_template("dashboard.html")
-
-
-def getWriteMessage(controllerId, pin, value):
-    return str(controllerId) + ":W:" + str(pin) + ":" + str(value) + ";"
-
-def getReadMessage(controllerId):
-    return str(controllerId) + ":R;"
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
