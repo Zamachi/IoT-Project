@@ -11,9 +11,9 @@
 #define TEMPERATURE A4
 #define VOLTAGE_SPLIT A3
 
-int RELAY_STATE = LOW;
-int vrednost_potenciometra = 0;
-int stara_vrednost_potenciometra = 0;
+int RELAY_STATE = LOW;//inicijalno stanje releja
+int vrednost_potenciometra = 0;//nova vrednost potenciometra
+int stara_vrednost_potenciometra = 0;//prethodna vrednost potenciometra
 int otpornost_otpornika = 1000; // otpornost otpornika(razdelnik napona) u omima
 
 unsigned long TIMER_DURATION = 2000; // nakon koliko vremena se okida vrem. prekid(us)
@@ -29,10 +29,10 @@ unsigned long duration; // vreme trajanja povratka
 float distance;         // udaljenost objekta i senzora
 int ukupan_broj_promena_stanja_releja = 0;
 int ukupan_broj_otvaranja_vrata = 0;
-bool is_door_open = false;
+bool is_door_open = false; // da li su vrata otvorena
 
 Servo servoControl; // potreban nam je Servo objekat iz biblioteke za rad
-SerialState serialState;
+SerialState serialState; // Enum tip koji koristimo za tranziciju stanja
 
 void Timer1Interrupt()
 {
@@ -167,7 +167,7 @@ void loop()
 
     case 5:
     {
-      // NOTE ovde vrsimo kontrolu motora(poruka stize sa Fronta)
+      // NOTE ovde vrsimo kontrolu motora(poruka stize sa Fronta), format poruke je 5:0-255;
       analogWrite(MOTOR_CONTROL, poruka.substring(index + 1, poruka.indexOf(':', index + 1)).toInt());
       break;
     }
@@ -186,7 +186,6 @@ void loop()
         servoControl.write(0);
         is_door_open = !is_door_open;
       }
-      // Serial.println(is_door_open); // FIXME povratna informacija
 
       break;
     }

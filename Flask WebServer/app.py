@@ -66,14 +66,6 @@ def processMessage(message):
             relej=objectDic["RELAY"]["value"], 
             vrata=objectDic["DOOR"]['value']
         )
-    else:
-        l = message[:-1].split(":")
-        arudinoId = int(l[0])
-        pin = int(l[1].split("|")[0])
-        val = int(l[1].split("|")[1])
-
-        objectDic[pin]['value'] = val;
-        objectDic[pin]['lastUpdate'] = time.strftime();
 
 threadReceiver = Thread(target=receive, args=(serialConnection,))
 threadReceiver.start()
@@ -97,7 +89,7 @@ def light():
     global IS_LED_ON
     # print(IS_LED_ON)
     IS_LED_ON = not IS_LED_ON
-    #serialConnection.write("4:;".encode('ascii'))
+    serialConnection.write("4:;".encode('ascii'))
     return jsonify(isError=False, message="Success", statusCode=200, data=IS_LED_ON)
 
 @app.route('/door/<status>', methods=["GET"])
@@ -105,7 +97,7 @@ def door(status):
     global IS_DOOR_OPEN
     # print(status)
     IS_DOOR_OPEN = not IS_DOOR_OPEN
-    # serialConnection.write("11:"+status.upper()+";".encode("ascii"))
+    serialConnection.write("11:"+status.upper()+";".encode("ascii"))
     return jsonify(isError=False, message="Success", statusCode=200, data=IS_DOOR_OPEN)
 
 #NOTE ova funkcija treba samo da vrati jsonify, ne treba nam randomizacija podataka
@@ -113,15 +105,15 @@ def door(status):
 def updateVals():
     global objectDic
 
-    objectDic["TEMP"]["value"] = randint(-55, 150)
-    objectDic["TEMP"]["lastUpdate"] = str(datetime.now())
+    # objectDic["TEMP"]["value"] = randint(-55, 150)
+    # objectDic["TEMP"]["lastUpdate"] = str(datetime.now())
 
-    objectDic["LIGHT"]["value"] = randint(0, 10000)
-    objectDic["LIGHT"]["lastUpdate"] = str(datetime.now())
+    # objectDic["LIGHT"]["value"] = randint(0, 10000)
+    # objectDic["LIGHT"]["lastUpdate"] = str(datetime.now())
     return jsonify(isError=False, message="Success", statusCode=200, data=objectDic)
 
 @app.route('/ventilation/<value>', methods=['GET'])
-def venetilation(value):
+def ventilation(value):
     global PWM_STATE
     PWM_STATE = int( (int(value) / 100) * 255)
     print(PWM_STATE)
@@ -129,7 +121,7 @@ def venetilation(value):
         PWM_STATE = 255
     elif(PWM_STATE < 0 ):
         PWM_STATE = 0
-    # serialConnection.write("5:"+PWM_STATE+";".encode('ascii'))
+    serialConnection.write("5:"+PWM_STATE+";".encode('ascii'))
     return jsonify(isError=False, message="Success", statusCode=200, data=PWM_STATE)
 
 if __name__ == "__main__":
