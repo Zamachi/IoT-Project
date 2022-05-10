@@ -19,7 +19,8 @@
     ></script>
     <div class="container">
       <div>
-        <h2>Sensor readings:</h2><br>
+        <h2>Sensor readings:</h2>
+        <br />
         <table class="table">
           <thead>
             <tr>
@@ -32,20 +33,18 @@
             {% for sensor,sensorObj in data.items() %}
             <tr>
               <th scope="row">{{ sensor }}</th>
-              <td>
+              <td id="{{sensor}}Value">
                 {{sensorObj.value}}&nbsp;{{sensorObj.unit}}
               </td>
-              <td>
-                {{sensorObj.lastUpdate}}
-              </td>
+              <td id="{{sensor}}Updated">{{sensorObj.lastUpdate}}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <br>
-      <hr>
-      <br>
+      <br />
+      <hr />
+      <br />
       <div>
         <table class="table">
           <thead>
@@ -74,7 +73,6 @@
                     type="button"
                     id="lightOff"
                     class="btn btn-lg btn-danger"
-                    
                   >
                     Off
                   </button>
@@ -166,10 +164,10 @@
           .then((response) => response.json())
           .then((data) => {
             // console.log(data.data);
-            if(!data.data){
+            if (!data.data) {
               doorOpen.disabled = true;
               doorClosed.disabled = false;
-            }else{
+            } else {
               doorOpen.disabled = false;
               doorClosed.disabled = true;
             }
@@ -180,6 +178,18 @@
         fetch("/ventilation/" + pwmValue.value);
         event.preventDefault();
       }
+
+      //WARNING potrebno je jer Flask ne vrsi data binding
+      setInterval(() => {
+        fetch("/updateVals")
+          .then((response) => response.json())
+          .then((data) => {
+            for(var key in data.data){
+              document.getElementById(key+"Value").innerHTML = data.data[key]['value']+" "+data.data[key]['unit']
+              document.getElementById(key+"Updated").innerHTML = data.data[key]['lastUpdate']
+            }
+          });
+      }, 60000);
     </script>
   </body>
 </html>

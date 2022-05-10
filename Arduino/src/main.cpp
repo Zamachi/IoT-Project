@@ -95,7 +95,6 @@ void Timer1Interrupt()
   // NOTE 60 s / 0.002 = 30000 otkucaja
   if (counter % 30000 == 0)
   {
-    // FIXME ovde vrsimo slanje serijsko slanje...
     Serial.println(
         "$TEMP:" + String(getTemperatureFromSensor()) +
         "$LIGHT:" + String(getLightInLux()) +

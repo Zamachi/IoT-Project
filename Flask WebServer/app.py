@@ -4,6 +4,8 @@ from threading import Thread
 import time
 from mailService import sendEmail
 from thnigspeak import sendData
+from random import randint
+from datetime import datetime
 
 PORT = "COM1"
 BAUD_RATE = 9600
@@ -50,7 +52,7 @@ def receive(serialConnection):
         time.sleep(0.1)
 
 def processMessage(message):
-    # FIXME format poruke je kakav??
+    # NOTE format poruke: "$TEMP:value$LIGHT:value$RELAY:value$DOOR:value;"
     if(message[0] == "$"):
         ocitavanja = message[1:].split("$")
         for senzor in ocitavanja:
@@ -79,6 +81,10 @@ threadReceiver.start()
 threadEmail = Thread(target=sendEmail)
 threadEmail.start()
 
+# NOTE ovde simuliramo slanje na ThingSpeak(bez potrebe za Arduino serijskom com...)
+# threadSend = Thread(target=sendData, args=(randint(-55, 151), randint(0, 10000), randint(1,10), randint(1,10)))
+# threadSend.start()
+
 app = Flask(__name__)
 
 @app.route('/')
@@ -101,6 +107,18 @@ def door(status):
     IS_DOOR_OPEN = not IS_DOOR_OPEN
     # serialConnection.write("11:"+status.upper()+";".encode("ascii"))
     return jsonify(isError=False, message="Success", statusCode=200, data=IS_DOOR_OPEN)
+
+#NOTE ova funkcija treba samo da vrati jsonify, ne treba nam randomizacija podataka
+@app.route('/updateVals', methods=['GET'])
+def updateVals():
+    global objectDic
+
+    objectDic["TEMP"]["value"] = randint(-55, 150)
+    objectDic["TEMP"]["lastUpdate"] = str(datetime.now())
+
+    objectDic["LIGHT"]["value"] = randint(0, 10000)
+    objectDic["LIGHT"]["lastUpdate"] = str(datetime.now())
+    return jsonify(isError=False, message="Success", statusCode=200, data=objectDic)
 
 @app.route('/ventilation/<value>', methods=['GET'])
 def venetilation(value):
