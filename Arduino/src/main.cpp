@@ -11,7 +11,7 @@
 #define TEMPERATURE A4
 #define VOLTAGE_SPLIT A3
 
-int RELAY_STATE;
+int RELAY_STATE = LOW;
 int vrednost_potenciometra = 0;
 int stara_vrednost_potenciometra = 0;
 int otpornost_otpornika = 1000; // otpornost otpornika(razdelnik napona) u omima
@@ -32,6 +32,7 @@ int ukupan_broj_otvaranja_vrata = 0;
 bool is_door_open = false;
 
 Servo servoControl; // potreban nam je Servo objekat iz biblioteke za rad
+SerialState serialState;
 
 void Timer1Interrupt()
 {
@@ -47,36 +48,47 @@ void Timer1Interrupt()
   // NOTE priblizne vrednosti od 8000 mikrosekundi vremenski prekid treba da se okine 4 puta
   // NOTE jer 4*2000=8000 mikrosekundi, nakon toga treba da setujemo signal na LOW.
 
-  switch (SerialState)
+  switch (serialState)
   {
   case Transmission:
+  {
+
     digitalWrite(ULTRASONIC_TRIG, HIGH);
     if (counter % 4 == 0)
-      SerialState = Receive;
+      serialState = Receive;
     break;
+  }
   case Receive:
+  {
+
     digitalWrite(ULTRASONIC_TRIG, LOW);
     duration = pulseIn(ULTRASONIC_ECHO, HIGH); // citamo vreme koje je bilo potrebno signalu da se vrati u prijemnik(milisekundama)
     distance = duration * 0.0343 * 0.5;
-    SerialState = Wait;
+    serialState = Action;
     break;
+  }
   case Action: // WARNING ovo potencijalno treba premestiti u loop!
-    if (distance < 5 && !is_door_open)
+  {
+    if (distance <= 5 && !is_door_open)
     {
       servoControl.write(90);
       is_door_open = !is_door_open;
       ukupan_broj_otvaranja_vrata++;
     }
-    else if (is_door_open)
+    else if (distance > 5 && is_door_open)
     {
       is_door_open = !is_door_open;
       servoControl.write(0);
     }
+    serialState = Wait;
     break;
+  }
   case Wait:
+  {
     if (counter % 500 == 0)
-      SerialState = Transmission;
+      serialState = Transmission;
     break;
+  }
   }
 
   // Arduino treba svakog minuta da salje izvestaj Web serveru(Flask)
@@ -85,10 +97,10 @@ void Timer1Interrupt()
   {
     // FIXME ovde vrsimo slanje serijsko slanje...
     Serial.println(
-        "TEMP:" + String(getTemperatureFromSensor()) +
-        ";LIGHT:" + String(getLightInLux()) +
-        ";RELAY:" + String(ukupan_broj_promena_stanja_releja) +
-        ";DOOR:" + String(ukupan_broj_otvaranja_vrata) + ";");
+        "$TEMP:" + String(getTemperatureFromSensor()) +
+        "$LIGHT:" + String(getLightInLux()) +
+        "$RELAY:" + String(ukupan_broj_promena_stanja_releja) +
+        "$DOOR:" + String(ukupan_broj_otvaranja_vrata) + ";");
 
     ukupan_broj_promena_stanja_releja = 0;
     ukupan_broj_otvaranja_vrata = 0;
@@ -102,14 +114,13 @@ void setup()
   pinMode(ULTRASONIC_TRIG, OUTPUT); // koristimo da posaljemo signal na predajniku ultrason.senz.
   pinMode(MOTOR_CONTROL, OUTPUT);   // Kontrolise DC elektromotor(PWM)
   pinMode(ULTRASONIC_ECHO, INPUT);  // vrsimo ocitavanja sa prijemnika na ultrason.senz.
-  pinMode(TEMPERATURE, INPUT);      // ocitavanja sa analognog ulaza(napon) za temperatuu
+  pinMode(TEMPERATURE, INPUT);      // ocitavanja sa analognog ulaza(napon) za temperaturu
+  pinMode(WIPER_READOUT, INPUT);    // Citamo sa potenciometra
   pinMode(VOLTAGE_SPLIT, INPUT);    // razdelnik napona(analogni senzor)
-
-  RELAY_STATE = LOW; // relej inicijalno LOW
 
   servoControl.attach(SERVO_CONTROL); // Na digitalnom portu 11 se vrsi kontrola servo motora
 
-  SerialState = Transmission; // inicijalizujemo stanje
+  serialState = Transmission; // inicijalizujemo stanje
 
   Timer1.initialize(TIMER_DURATION);       // inicijalizujemo tajmer sa odedjenim trajanjem
   Timer1.attachInterrupt(Timer1Interrupt); // koja funkcija se izvrsi kada dodje do vrem. prek.
@@ -120,10 +131,11 @@ void setup()
 int getTemperatureFromSensor()
 {
   // NOTE ovo je formula za TMP36!
-  return (5 * analogRead(TEMPERATURE) / 1023.0f) * 100 - 50;
+  // return (5 * analogRead(TEMPERATURE) / 1023.0f) * 100 - 50;
 
   // NOTE Formula za LM35:
   //       T = 500 * D/1023 (○C),  gde je D - ocitavanje sa analognog ulaza ( ?)
+  return 500 * analogRead(TEMPERATURE) / 1023;
 }
 
 int getLightInLux()
@@ -136,59 +148,60 @@ int getLightInLux()
 
 void loop()
 {
-  //NOTE Format poruke koji prihvatamo PIN[:VREDNOST];
+  // NOTE Format poruke koji prihvatamo PIN[:VREDNOST];
   if (Serial.available() > 0)
   {
     String poruka = Serial.readStringUntil(';');
     int index = poruka.indexOf(':');
 
-    if (index == -1) //NOTE RELEJ MENJAMO TAKO STO SA FRONTA POSALJEMO ZAHTEV FORMATA "PIN;"(bez vrednosti)
+    int pin = poruka.substring(0, index).toInt();
+
+    switch (pin)
+    {
+    case 4: // NOTE fomat poruke je 4:;
     {
       RELAY_STATE = !RELAY_STATE;
       digitalWrite(RELAY_CONTROL, RELAY_STATE);
       ukupan_broj_promena_stanja_releja++;
-      Serial.println(RELAY_STATE);//FIXME ovo treba da vrati stanje releja da se prikaze na frontu
+      break;
     }
-    else
+
+    case 5:
     {
-      int pin = poruka.substring(0, index).toInt();
-
-      switch (pin)
+      // NOTE ovde vrsimo kontrolu motora(poruka stize sa Fronta)
+      analogWrite(MOTOR_CONTROL, poruka.substring(index + 1, poruka.indexOf(':', index + 1)).toInt());
+      break;
+    }
+    case 11:
+    {
+      // NOTE Poruka tipa 11:O ili C;
+      char open_close = poruka[3];
+      if (open_close == 'O' && !is_door_open)
       {
-      case 5:
+        servoControl.write(90);
+        ukupan_broj_otvaranja_vrata++;
+        is_door_open = !is_door_open;
+      }
+      else if (open_close == 'C' && is_door_open)
       {
-        // NOTE ovde vrsimo kontrolu motora(poruka stize sa Fronta)
-        analogWrite(MOTOR_CONTROL, poruka.substring(index + 1, poruka.indexOf(':', index + 1)).toInt());
-        break;
+        servoControl.write(0);
+        is_door_open = !is_door_open;
       }
-      case 11:
-        // NOTE Poruka tipa 11:O ili C;
-        char open_close = poruka[2];
-        if (open_close == 'O' && !is_door_open)
-        {
-          servoControl.write(90);
-          ukupan_broj_otvaranja_vrata++;
-          is_door_open = !is_door_open;
-        }
-        else if (is_door_open)
-        {
-          servoControl.write(0);
-          is_door_open = !is_door_open;
-        }
-        Serial.println(is_door_open);//FIXME povratna informacija
+      // Serial.println(is_door_open); // FIXME povratna informacija
 
-        break;
-      default:
-        Serial.println("Dati uredjaj nije pronadjen");
-        break;
-      }
+      break;
+    }
+    default:
+      Serial.println("Dati uredjaj nije pronadjen");
+      break;
     }
   }
   else
   {
     // NOTE Ukoliko nema poruke, onda se samo ocitava vrednost sa potenciometra da bi se promenio PWM DC motora
     vrednost_potenciometra = analogRead(WIPER_READOUT);
-    if (vrednost_potenciometra != stara_vrednost_potenciometra)
+    int delta = 6;
+    if (!(vrednost_potenciometra >= stara_vrednost_potenciometra - delta && vrednost_potenciometra <= stara_vrednost_potenciometra + delta))
     {
       stara_vrednost_potenciometra = vrednost_potenciometra;
       analogWrite(MOTOR_CONTROL, map(vrednost_potenciometra, 0, 1023, 0, 255));
