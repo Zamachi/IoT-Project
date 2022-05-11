@@ -7,7 +7,7 @@ from thnigspeak import sendData
 from random import randint
 from datetime import datetime
 
-PORT = "COM1"
+PORT = "COM4"
 BAUD_RATE = 9600
 
 IS_LED_ON = False
@@ -49,16 +49,20 @@ def receive(serialConnection):
         if serialConnection.in_waiting > 0:
             receivedMessage = serialConnection.read_until(b';').decode('ascii')
             processMessage(receivedMessage)
+            serialConnection.reset_input_buffer()
         time.sleep(0.1)
 
 def processMessage(message):
     # NOTE format poruke: "$TEMP:value$LIGHT:value$RELAY:value$DOOR:value;"
+    # print(message)
+    # print(message[0])
     if(message[0] == "$"):
+        # print("Poruka je pristigla "+ str(datetime.now()) +message[1:])
         ocitavanja = message[1:].split("$")
         for senzor in ocitavanja:
             key_value = senzor.split(":")
             objectDic[key_value[0]]['value'] = key_value[1]
-            objectDic[key_value[0]]['lastUpdate'] = time.strftime()
+            objectDic[key_value[0]]['lastUpdate'] = str(datetime.now())
 
         sendData(
             temp=objectDic["TEMP"]["value"], 
@@ -95,9 +99,9 @@ def light():
 @app.route('/door/<status>', methods=["GET"])
 def door(status):
     global IS_DOOR_OPEN
-    # print(status)
+    #print(status[0])
     IS_DOOR_OPEN = not IS_DOOR_OPEN
-    serialConnection.write("11:"+status.upper()+";".encode("ascii"))
+    serialConnection.write(("11:"+status.upper()[0]+";").encode("ascii"))
     return jsonify(isError=False, message="Success", statusCode=200, data=IS_DOOR_OPEN)
 
 #NOTE ova funkcija treba samo da vrati jsonify, ne treba nam randomizacija podataka
@@ -116,12 +120,12 @@ def updateVals():
 def ventilation(value):
     global PWM_STATE
     PWM_STATE = int( (int(value) / 100) * 255)
-    print(PWM_STATE)
+    # print(PWM_STATE)
     if(PWM_STATE > 255):
         PWM_STATE = 255
     elif(PWM_STATE < 0 ):
         PWM_STATE = 0
-    serialConnection.write("5:"+PWM_STATE+";".encode('ascii'))
+    serialConnection.write(("5:"+str(PWM_STATE)+";").encode('ascii'))
     return jsonify(isError=False, message="Success", statusCode=200, data=PWM_STATE)
 
 if __name__ == "__main__":

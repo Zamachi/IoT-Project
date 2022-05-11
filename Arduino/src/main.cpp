@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <Servo.h>
+#include <ServoTimer2.h>
 #include <TimerOne.h>
 
 #define RELAY_CONTROL 4
@@ -11,10 +11,10 @@
 #define TEMPERATURE A4
 #define VOLTAGE_SPLIT A3
 
-int RELAY_STATE = LOW;//inicijalno stanje releja
-int vrednost_potenciometra = 0;//nova vrednost potenciometra
-int stara_vrednost_potenciometra = 0;//prethodna vrednost potenciometra
-int otpornost_otpornika = 1000; // otpornost otpornika(razdelnik napona) u omima
+int RELAY_STATE = LOW;                // inicijalno stanje releja
+int vrednost_potenciometra = 0;       // nova vrednost potenciometra
+int stara_vrednost_potenciometra = 0; // prethodna vrednost potenciometra
+int otpornost_otpornika = 1000;       // otpornost otpornika(razdelnik napona) u omima
 
 unsigned long TIMER_DURATION = 2000; // nakon koliko vremena se okida vrem. prekid(us)
 unsigned long counter = 0;           // counter za tajmer
@@ -30,9 +30,29 @@ float distance;         // udaljenost objekta i senzora
 int ukupan_broj_promena_stanja_releja = 0;
 int ukupan_broj_otvaranja_vrata = 0;
 bool is_door_open = false; // da li su vrata otvorena
+bool enable_remote_door_control = false;
 
-Servo servoControl; // potreban nam je Servo objekat iz biblioteke za rad
-SerialState serialState; // Enum tip koji koristimo za tranziciju stanja
+ServoTimer2 servoControl; // potreban nam je Servo objekat iz biblioteke za rad
+SerialState serialState;  // Enum tip koji koristimo za tranziciju stanja
+
+
+int getTemperatureFromSensor()
+{
+  // NOTE ovo je formula za TMP36!
+  // return (5 * analogRead(TEMPERATURE) / 1023.0f) * 100 - 50;
+
+  // NOTE Formula za LM35:
+  //       T = 500 * D/1023 (○C),  gde je D - ocitavanje sa analognog ulaza ( ?)
+  return 500 * analogRead(TEMPERATURE) / 1023;
+}
+
+int getLightInLux()
+{ // NOTE: proveriti formulu!
+  float vrednost_napona = analogRead(VOLTAGE_SPLIT) * 5 * 9.7751710e-4;
+  float otpornost_fotootpornika = otpornost_otpornika * (5 - vrednost_napona) / vrednost_napona;
+
+  return (int)(12518931 * pow(otpornost_fotootpornika, -1.405));
+}
 
 void Timer1Interrupt()
 {
@@ -69,16 +89,19 @@ void Timer1Interrupt()
   }
   case Action: // WARNING ovo potencijalno treba premestiti u loop!
   {
-    if (distance <= 5 && !is_door_open)
+    if (distance <= 5 && !is_door_open && !enable_remote_door_control)
     {
-      servoControl.write(90);
+      servoControl.write(1500);
       is_door_open = !is_door_open;
       ukupan_broj_otvaranja_vrata++;
+      // Serial.println("Nesto je prislo i otvorio sam vrata");
     }
-    else if (distance > 5 && is_door_open)
+    else if (distance > 5 && is_door_open && !enable_remote_door_control)
     {
       is_door_open = !is_door_open;
-      servoControl.write(0);
+      servoControl.write(750);
+      
+      // Serial.println("Nesto je otislo i zatvorio sam vrata");
     }
     serialState = Wait;
     break;
@@ -127,24 +150,6 @@ void setup()
   Serial.begin(9600);
 }
 
-int getTemperatureFromSensor()
-{
-  // NOTE ovo je formula za TMP36!
-  // return (5 * analogRead(TEMPERATURE) / 1023.0f) * 100 - 50;
-
-  // NOTE Formula za LM35:
-  //       T = 500 * D/1023 (○C),  gde je D - ocitavanje sa analognog ulaza ( ?)
-  return 500 * analogRead(TEMPERATURE) / 1023;
-}
-
-int getLightInLux()
-{ // NOTE: proveriti formulu!
-  float vrednost_napona = analogRead(VOLTAGE_SPLIT) * 5 * 9.7751710e-4;
-  float otpornost_fotootpornika = otpornost_otpornika * (5 - vrednost_napona) / vrednost_napona;
-
-  return (int)(12518931 * pow(otpornost_fotootpornika, -1.405));
-}
-
 void loop()
 {
   // NOTE Format poruke koji prihvatamo PIN[:VREDNOST];
@@ -174,35 +179,37 @@ void loop()
     case 11:
     {
       // NOTE Poruka tipa 11:O ili C;
+      enable_remote_door_control=true;
       char open_close = poruka[3];
-      if (open_close == 'O' && !is_door_open)
+      if (open_close == 'O' && !is_door_open && enable_remote_door_control)
       {
-        servoControl.write(90);
+        servoControl.write(1500);
         ukupan_broj_otvaranja_vrata++;
         is_door_open = !is_door_open;
+        // Serial.println("Otvaram vrata remote;");
       }
-      else if (open_close == 'C' && is_door_open)
+      else if (open_close == 'C' && is_door_open && enable_remote_door_control)
       {
-        servoControl.write(0);
+        servoControl.write(750);
         is_door_open = !is_door_open;
+        // Serial.println("Zatvaram vrata remote");
       }
-
+      enable_remote_door_control=false;
       break;
     }
-    default:
-      Serial.println("Dati uredjaj nije pronadjen");
-      break;
     }
   }
-  else
-  {
+  // else
+  // {
     // NOTE Ukoliko nema poruke, onda se samo ocitava vrednost sa potenciometra da bi se promenio PWM DC motora
     vrednost_potenciometra = analogRead(WIPER_READOUT);
-    int delta = 6;
+    int delta = 4;
     if (!(vrednost_potenciometra >= stara_vrednost_potenciometra - delta && vrednost_potenciometra <= stara_vrednost_potenciometra + delta))
     {
+      Serial.println("Nova "+ String(vrednost_potenciometra));
+      Serial.println("Stara "+String(stara_vrednost_potenciometra));
       stara_vrednost_potenciometra = vrednost_potenciometra;
       analogWrite(MOTOR_CONTROL, map(vrednost_potenciometra, 0, 1023, 0, 255));
     }
-  }
+  // }
 }
